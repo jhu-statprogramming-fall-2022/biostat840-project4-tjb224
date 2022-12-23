@@ -1,0 +1,333 @@
+---
+title: "trigstatpack_vingnette"
+author: "Taner Bertuna"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{trigstatpack_vingnette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(stats)
+```
+
+Data to be analyzed comes from tidytuesday. 
+Link to where you can download the data and to the data dictionary:
+https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-22/readme.md
+
+Data description:
+
+The data set "expeditions" is a date frame of compiled information on climbing expeditions in Nepal. The data includes many important dates for the expeditions, number of deaths, season of attempt, etc. The data is derived from the records of Elizabeth Hawley. 
+
+Purpose:
+This analysis aims at understating if there are associations for the number of deaths in an Everest expedition. 
+
+Load Data 
+```{r}
+if(!dir.exists(here("data"))) { dir.create(here("data")) }
+
+if(!file.exists(here("data","expeditions.RData"))){
+  
+  expeditions <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/expeditions.csv')
+  save(expeditions, file = here("data","expeditions.RData"))
+} 
+
+```
+
+```{r}
+load(here("data","expeditions.RData"))
+```
+
+```{r}
+
+fn_cos <- function(x, k) {
+  if(k %% 1 == 0 & k >=1) {
+  g <- c()
+  for(i in 0:k) {
+    v <- ((-1)^i)*((x^(2*i))/factorial(2*i))
+    g <- c(g,v)
+  }
+  t <- sum(g)
+  print(t) }
+  else {(stop("K is not an integer or is not >=1"))}
+
+}
+
+fun_sin <- function(x, k) {
+  if(k %% 1 == 0 & k >=1) {
+  h <- c()
+  for(ii in 0:k) {
+    p <- ((-1)^ii)*(x^((2*ii)+1)/(factorial((2*ii)+1)))
+    h <- c(h,p)
+  }
+  t <- sum(h)
+  print(t)}
+  else {(stop("K is not an integer or is not >=1"))}
+}
+
+
+calculate_CI <- function(xx, ...) UseMethod("calculate_CI")
+
+calculate_CI.ci_class <- function(x, conf) {
+  x_obj <- x
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x_obj) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x_obj) * (sum(x_obj))
+  h1 <- c()
+  for(i in 1:length(x_obj)) {
+    mean1 <- 1/length(x_obj) * (sum(x_obj))
+    h <- ((x_obj[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x_obj)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x_obj)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x_obj)))
+  lower_bound <- output_low
+  upper_bound <- output_high
+  print(paste(lower_bound, "= lower_bound"))
+  print(paste(upper_bound, "= upper_bound"))
+  }
+  else {(stop("Conf value cant be greater or equal to 1"))}}
+
+make_ci_class <- function(xx){structure((data = xx), class = "ci_class")}
+
+print_CI <- function(xx, ...) UseMethod("print_CI")
+
+print_CI.ci_class <- function(xx){
+  cat("An object with class:", class(xx), ", and", length(xx), "observations.")
+  invisible(xx)
+}
+```
+
+
+
+
+## Demonstrate fn_cos function
+
+Make vectors to plot and plot
+```{r}
+
+fn_cos <- function(x, k) {
+  if(k %% 1 == 0 & k >=1) {
+  g <- c()
+  for(i in 0:k) {
+    v <- ((-1)^i)*((x^(2*i))/factorial(2*i))
+    g <- c(g,v)
+  }
+  t <- sum(g)
+  print(t) }
+  else {(stop("K is not an integer or is not >=1"))}
+
+}
+
+cos_K1 <- c()
+cos_K3 <- c()
+cos_K5 <- c()
+cos_K7 <- c()
+cos_K9 <- c()
+cos_base <- c()
+
+row_x <- seq(from = .1, to = 10, length.out = 100) 
+
+for(i in row_x) {
+  h <- fn_cos(i, 1)
+  cos_K1 <- c(cos_K1,h)}
+
+for(i in row_x) {
+  h <- fn_cos(i, 3)
+  cos_K3 <- c(cos_K3,h)}
+
+for(i in row_x) {
+  h <- fn_cos(i, 5)
+  cos_K5 <- c(cos_K5,h)}
+
+for(i in row_x) {
+  h <- fn_cos(i, 7)
+  cos_K7 <- c(cos_K7,h)}
+
+for(i in row_x) {
+  h <- fn_cos(i, 9)
+  cos_K9 <- c(cos_K9,h)}
+
+for(i in row_x) {
+  h <- cos(i)
+  cos_base <- c(cos_base,h)}
+
+
+cos_df <- data.frame(row_x, cos_K1, cos_K3, cos_K5, cos_K7, cos_K9, cos_base)
+
+cos_df %>%
+  as.tibble() %>% 
+  pivot_longer(-row_x, names_to = "cos_k", values_to = "values") %>% mutate(is_base_fun = ifelse(cos_k == "cos_base", 1, 0))
+
+cos_df %>%
+  as.tibble() %>% 
+  pivot_longer(-row_x, names_to = "cos_k", values_to = "values") %>% 
+  ggplot(aes(x = row_x, y = values, color = cos_k)) + 
+  geom_line() +
+  ylim(-1,1) + 
+  geom_point() + 
+  xlab("X value") +
+  ylab("Function output") + 
+  ggtitle("Test cosine function") + 
+  labs(subtitle = "The greater value of K the greater it approximates the base cosine function)")
+
+
+```
+
+## Demonstrate fun_sine function
+
+Make vectors to plot and plot
+```{r}
+sine_K1 <- c()
+sine_K3 <- c()
+sine_K5 <- c()
+sine_K7 <- c()
+sine_K9 <- c()
+sine_base <- c()
+
+for(i in row_x) {
+  h <- fun_sin(i, 1)
+  sine_K1 <- c(sine_K1,h)}
+
+for(i in row_x) {
+  h <- fun_sin(i, 3)
+  sine_K3 <- c(sine_K3,h)}
+
+for(i in row_x) {
+  h <- fun_sin(i, 5)
+  sine_K5 <- c(sine_K5,h)}
+
+for(i in row_x) {
+  h <- fun_sin(i, 7)
+  sine_K7 <- c(sine_K7,h)}
+
+for(i in row_x) {
+  h <- fun_sin(i, 9)
+  sine_K9 <- c(sine_K9,h)}
+
+for(i in row_x) {
+  h <- sin(i)
+  sine_base <- c(sine_base,h)}
+
+
+sine_df <- data.frame(row_x, sine_K1, sine_K3, sine_K5, sine_K7, sine_K9, sine_base)
+
+sine_df %>%
+  as.tibble() %>% 
+  pivot_longer(-row_x, names_to = "sin_k", values_to = "values") %>% 
+  ggplot(aes(x = row_x, y = values, color = sin_k)) + 
+  geom_line() + 
+  geom_point() + 
+  ylim(-1,1) + 
+  xlab("X value") +
+  ylab("Function output") + 
+  ggtitle("Test sine function") + 
+  labs(subtitle = "The greater value of K the greater it approximates the base sine function)")
+
+
+```
+
+## Mountain climbing data exloprer
+
+Set up data set
+```{r}
+
+expeditions_data <- expeditions %>% mutate(any_deaths = ifelse(member_deaths + hired_staff_deaths == 0, "no", "yes")) %>% select(-trekking_agency) %>% filter(peak_name == "Everest") %>% mutate(total_deaths = member_deaths + hired_staff_deaths) %>% as_tibble()
+```
+
+Look at any_deaths by season 
+```{r}
+
+expeditions_data %>% group_by(season) %>% count(any_deaths)
+```
+
+Calculate CI for number of deaths in a year. 
+```{r}
+
+test_ci <- expeditions_data %>% group_by(year) %>% summarize(deaths = sum(total_deaths)) %>% pull(deaths) # make vector of deaths 
+
+expeditions_data_ci_class <- make_ci_class(test_ci) # make class "ci_class"
+
+calculate_CI(expeditions_data_ci_class, .95) # Apply calculate_CI function. The lower bound for deaths in a year is 3.2 and the upper bound is 5.06.
+```
+
+Plots:
+```{r}
+
+expeditions_data %>% 
+  group_by(season) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = fct_reorder(.f = season, .x = deaths))) +
+  geom_bar(stat = "identity") + 
+  xlab("season") +
+  ylab("total number of deaths") + 
+  ggtitle("Figure 1: Everest Expedition Deaths by Season") + 
+  labs(subtitle = "The vast majority of deaths occured in the spring (peak climbing season)")
+```
+
+```{r}
+
+expeditions_data %>% 
+  group_by(year) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = year)) +
+  geom_point() +
+  geom_smooth() +
+  xlab("Year") +
+  ylab("total number of deaths") + 
+  ggtitle("Figure 2: Everest Expedition Deaths by Year") + 
+  labs(subtitle = "Deaths seem to be trending upwards")
+```
+
+```{r}
+
+#expeditions_data %>% group_by(oxygen_used) %>% count(oxygen_used) %>% mutate(n = prop.table(n)) %>% pivot_wider(names_from=oxygen_used, values_from = n)
+
+#expeditions_data %>% group_by(oxygen_used) %>% summarize(deaths = sum(total_deaths)) %>% summarize( = sum(total_deaths)) 
+
+#group_by(oxygen_used) %>% mutate(n = prop.table(n))
+
+
+expeditions_data %>% 
+  group_by(oxygen_used) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = oxygen_used)) +
+  geom_bar(stat = "identity") +
+  xlab("Was Oxygen Used?") +
+  ylab("total number of deaths") + 
+  ggtitle("Figure 3: Everest Expedition Deaths by Oxygen Use") + 
+  labs(subtitle = "Most deaths occured when oxygen was used but this is likely because most expeditions use oxygen")
+```
+
+It appears that most deaths occur in the spring and that that is likely due to the high volume of expeditions that take place in that season. Over time there seems to be an increase in deaths, likely attributed to the increasing number of climbers who attempt the mountain. 
+
+Functions:
+
+dyplyr - pull(), mutate(), select(), filter(), summarize(), count()
+forcats - fct_reorder()
+
+
+
+
+

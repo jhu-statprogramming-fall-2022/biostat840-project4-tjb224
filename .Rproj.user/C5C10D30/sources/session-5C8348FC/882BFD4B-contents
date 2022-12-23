@@ -1,0 +1,47 @@
+#' Welcome to trigstatpack!
+#'
+#' This is the conf interval function: calculate_CI.
+#'
+#' @details This function calculates the calculate_CI of a sample mean. .
+#'
+#' @param x vector, the vector of integers that the CI is to be calculated for.
+#' @param ... other params
+#' @param conf is the desired confidence of the CI. Must be between 0 and 1
+#'
+#' @return calculated CI.
+#'
+#' @import tidyverse
+#' @importFrom stats qt
+#'
+#' @examples
+#' y_oo <- structure(1:10, class = "ci_class")
+#' calculate_CI(y_oo, .95)
+#' @export
+#' @rdname calculate_CI
+calculate_CI.ci_class <- function(x, conf, ...) {
+  x_obj <- x
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x_obj) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x_obj) * (sum(x_obj))
+  h1 <- c()
+  for(i in 1:length(x_obj)) {
+    mean1 <- 1/length(x_obj) * (sum(x_obj))
+    h <- ((x_obj[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x_obj)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x_obj)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x_obj)))
+  lower_bound <- output_low
+  upper_bound <- output_high
+  print(paste(lower_bound, "= lower_bound"))
+  print(paste(upper_bound, "= upper_bound"))
+  }
+  else {(stop("Conf value cant be greater or equal to 1"))}
+}
+
+

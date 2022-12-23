@@ -1,0 +1,23 @@
+calculate_CI_test <- function(x, conf) {
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x) * (sum(x))
+  h1 <- c()
+  for(i in 1:length(x)) {
+    mean1 <- 1/length(x) * (sum(x))
+    h <- ((x[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x)))
+  CI <- c(output_low,output_high)
+  print(CI) }
+  else {(stop("Conf value cant be greater or equal to 1"))}
+
+}
+

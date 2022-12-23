@@ -1,0 +1,509 @@
+---
+title: "Deaths in the Himalaya"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny 
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(DT)
+library(shiny)
+library(ggplot2)
+library(tidyverse)
+library(here)
+library(purrr)
+
+
+knitr::opts_chunk$set(fig.width = 5, fig.asp = 2/3)
+```
+
+```{r, echo=FALSE}
+if(!dir.exists(here("data"))) { dir.create(here("data")) }
+  
+if(!file.exists(here("data","expeditions.RData"))){
+  
+  expeditions <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/expeditions.csv')
+  save(expeditions, file = here("data","expeditions.RData"))
+}else{
+  load(here("data","expeditions.RData"))
+  }
+
+```
+
+```{r, echo=FALSE}
+
+expeditions_data <- expeditions %>%
+  mutate(any_deaths = ifelse(member_deaths + hired_staff_deaths == 0, "no", "yes")) %>% 
+  select(-trekking_agency) %>% 
+  mutate(total_deaths = member_deaths + hired_staff_deaths) %>%
+  select(peak_name, season, total_deaths, year, oxygen_used, any_deaths) %>%
+  as_tibble()  
+```
+
+About {data-icon="fa-question-circle"}
+===================================== 
+
+Column {data-width=30}
+-------------------------------------
+
+**This dashboard is to illustrate mortality trends in Himalayan Climbing**
+
+Link to where you can download the data and to the data dictionary:
+https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-22/readme.md
+
+**Functions used:**
+dyplyr - pull(), mutate(), select(), filter(), summarize(), count()
+
+forcats - fct_reorder()
+
+purr - pluck()
+
+ggplot2 - geom_point(), geom_smooth(), geom_bar()
+
+
+![test](pic.png)
+Photo from: https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-22/readme.md
+
+Data {.storyboard data-icon="fa-list-ol"}
+=========================================   
+
+### **1)** About the data.
+
+**The data used in this dashboard comes from tidytuesday.** 
+
+**Data description:**
+The data set "expeditions" is a date frame of compiled information on climbing expeditions in Nepal. The data includes many important dates for the expeditions, number of deaths, season of attempt, etc. The data is derived from the records of Elizabeth Hawley. 
+
+### **2)** Load the packages.
+
+```{r, echo=TRUE, eval=FALSE}
+library(ggplot2)
+library(tidyverse)
+```
+
+### **3)** Load the data.
+
+
+```{r, echo=TRUE, eval=FALSE}
+
+# Get the Data
+
+# Read in with tidytuesdayR package 
+# Install from CRAN via: install.packages("tidytuesdayR")
+# This loads the readme and all the datasets for the week of interest
+
+# Either ISO-8601 date or year/week works!
+
+tuesdata <- tidytuesdayR::tt_load('2020-09-22')
+tuesdata <- tidytuesdayR::tt_load(2020, week = 39)
+
+climbers <- tuesdata$climbers
+
+# Or read in the data manually
+
+members <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/members.csv')
+expeditions <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/expeditions.csv')
+peaks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/peaks.csv')
+
+
+```
+
+note that the above code comes from: https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-22/readme.md
+
+### **4)** Wrangle the data.
+
+To wrangle the data set int he same way as the analysis use this code: 
+```{r, echo=TRUE, eval=FALSE}
+
+expeditions_data <- expeditions %>%
+  mutate(any_deaths = ifelse(member_deaths + hired_staff_deaths == 0, "no", "yes")) %>% 
+  select(-trekking_agency) %>% 
+  mutate(total_deaths = member_deaths + hired_staff_deaths) %>%
+  select(peak_name, season, total_deaths, year, oxygen_used, any_deaths) %>%
+  as_tibble()  
+```
+
+### **5)** Explore the data.
+
+```{r, echo=FALSE}
+
+DT::renderDataTable({
+  DT::datatable(expeditions_data, options = list(autoWidth = TRUE, 
+                                                 pageLength = 10, 
+                                                 scroller = TRUE, 
+                                                 scrollY = '450px'))
+})
+
+```
+
+
+
+Charts by Mountain  {data-icon="fa-database"}
+===================================== 
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+**Choose a mountain:**
+
+```{r, echo=FALSE}
+peaks <- expeditions %>% count(peak_name) %>% pluck(1) 
+selectInput("mountain", label = "Name of Mountain", choices = peaks, selected = "Everest")
+
+```
+
+
+Column 
+-----------------------------------------------------------------------
+
+### Deaths Over Time
+
+```{r, echo=FALSE}
+
+
+renderPlot({
+expeditions_data %>% 
+  group_by(year) %>%
+  filter(peak_name %in% input$mountain) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = year)) +
+  geom_point() +
+  geom_smooth() +
+  xlab("Year") +
+  ylab("Total number of deaths") + 
+  ggtitle(paste(input$mountain , "- Expedition Deaths by Year"))
+})
+```
+
+### Deaths by Oxygen Use
+
+```{r, echo=FALSE}
+renderPlot({
+expeditions_data %>% 
+  group_by(oxygen_used) %>%
+  filter(peak_name %in% input$mountain) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = oxygen_used)) +
+  geom_bar(stat = "identity") +
+  xlab("Was Oxygen Used?") +
+  ylab("Total number of deaths") + 
+  ggtitle(paste(input$mountain , "- Expedition Deaths by Oxygen Use")) 
+})
+```
+
+
+### Deaths by Season
+
+```{r, echo=FALSE}
+
+renderPlot({
+expeditions_data %>% 
+  group_by(season) %>%
+  filter(peak_name %in% input$mountain) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = fct_reorder(.f = season, .x = deaths))) +
+  geom_bar(stat = "identity") + 
+  xlab("Season") +
+  ylab("Total number of deaths") + 
+  ggtitle(paste(input$mountain , "- Expedition Deaths by Season")) 
+})
+```
+
+
+Climber Deaths by Mountain  {data-icon=fa-flag-checkered}
+===================================== 
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+**Choose a mountain:**
+
+```{r, echo=FALSE}
+peaks_1 <- expeditions %>% count(peak_name) %>% pluck(1) 
+selectInput("mountain_1", label = "Name of Mountain", choices = peaks_1, selected = "Everest")
+
+```
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+```{r, echo=FALSE}
+
+calculate_CI_upper <- function(x, conf) {
+  x_obj <- x
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x_obj) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x_obj) * (sum(x_obj))
+  h1 <- c()
+  for(i in 1:length(x_obj)) {
+    mean1 <- 1/length(x_obj) * (sum(x_obj))
+    h <- ((x_obj[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x_obj)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x_obj)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x_obj)))
+  lower_bound <- output_low
+  upper_bound <- output_high
+  print(paste(upper_bound, "= upper_bound"))
+  }
+  else {(stop("Conf value cant be greater or equal to 1"))}
+}
+
+calculate_CI_lower <- function(x, conf) {
+  x_obj <- x
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x_obj) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x_obj) * (sum(x_obj))
+  h1 <- c()
+  for(i in 1:length(x_obj)) {
+    mean1 <- 1/length(x_obj) * (sum(x_obj))
+    h <- ((x_obj[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x_obj)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x_obj)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x_obj)))
+  lower_bound <- output_low
+  upper_bound <- output_high
+  print(paste(lower_bound, "= lower_bound"))
+  }
+  else {(stop("Conf value cant be greater or equal to 1"))}
+}
+
+calculate_CI <- function(x, conf) {
+  x_obj <- x
+  if(conf < 1) {
+  alpha <- 1 - conf
+  degrees_freedom = length(x_obj) - 1
+  t_score = qt(p=alpha/2, df=degrees_freedom, lower.tail=FALSE)
+  mean <- 1/length(x_obj) * (sum(x_obj))
+  h1 <- c()
+  for(i in 1:length(x_obj)) {
+    mean1 <- 1/length(x_obj) * (sum(x_obj))
+    h <- ((x_obj[[i]]) - mean1)^2
+    h1 <- c(h1,h)
+    for_part <- sum(h1) }
+  solution_part_one <- ((1/(length(x_obj)-1)))
+  pls_work <- (for_part * solution_part_one)
+  standard_dev <- sqrt(pls_work)
+  output_high <- mean + (t_score * standard_dev / sqrt(length(x_obj)))
+  output_low <- mean - (t_score * standard_dev / sqrt(length(x_obj)))
+  lower_bound <- output_low
+  upper_bound <- output_high
+  print(paste(upper_bound, "= upper_bound"))
+  print(paste(lower_bound, "= lower_bound"))
+  }
+  else {(stop("Conf value cant be greater or equal to 1"))}
+}
+
+make_ci_class <- function(x){structure((data = x), class = "ci_class")}
+
+```
+
+
+### **Total Deaths**
+
+```{r}
+renderValueBox({
+deaths <- expeditions_data %>%
+  filter(peak_name %in% input$mountain_1) 
+
+valueBox(sum(pull(deaths, 'total_deaths'), na.rm = TRUE), color = "white")
+
+})
+
+
+```
+
+### **Average Deaths per Year**
+
+```{r}
+
+renderValueBox({
+calc_ci <- expeditions_data %>%
+  filter(peak_name %in% input$mountain_1) %>%
+  group_by(year) %>% 
+  summarize(deaths = sum(total_deaths))
+
+valueBox(mean(pull(calc_ci, 'deaths')), color = "white")
+
+})
+
+
+```
+
+### **Upper Bound of 95% CI for Deaths By Year**
+
+```{r}
+
+renderValueBox({
+calc_ci <- expeditions_data %>%
+  filter(peak_name %in% input$mountain_1) %>%
+  group_by(year) %>% 
+  summarize(deaths = sum(total_deaths))
+
+valueBox(calculate_CI_upper(pull(calc_ci, 'deaths'), .95), color = "white")
+
+})
+
+
+```
+
+
+### **Upper Bound of 95% CI for Deaths By Year**
+
+```{r}
+
+renderValueBox({
+calc_ci <- expeditions_data %>%
+  filter(peak_name %in% input$mountain_1) %>%
+  group_by(year) %>% 
+  summarize(deaths = sum(total_deaths))
+
+valueBox(calculate_CI_lower(pull(calc_ci, 'deaths'), .95), color = "white")
+
+})
+
+
+```
+
+Calculate CI for number of deaths in a year. 
+```{r, echo=FALSE}
+
+calc_ci <- reactive(expeditions_data %>%
+  filter(peak_name %in% input$mountain_1) %>%
+  group_by(year) %>% 
+  summarize(deaths = sum(total_deaths)) %>% 
+  pull(deaths) %>% make_ci_class()
+)
+
+calc_ci
+
+
+
+```
+
+Analysis  {.storyboard data-icon="fa-list-ol"}
+===================================== 
+
+### **1)** Purpose.
+
+Purpose:
+This analysis aims at understating if there are associations for the number of deaths in an Everest expedition. 
+
+### **2)** Data expoloration. 
+
+Set up data set
+```{r}
+
+expeditions_everest <- expeditions %>% mutate(any_deaths = ifelse(member_deaths + hired_staff_deaths == 0, "no", "yes")) %>% select(-trekking_agency) %>% filter(peak_name == "Everest") %>% mutate(total_deaths = member_deaths + hired_staff_deaths) %>% as_tibble()
+```
+
+Look at any_deaths by season 
+```{r}
+
+expeditions_everest %>% group_by(season) %>% count(any_deaths)
+```
+
+Calculate CI for number of deaths in a year. 
+```{r}
+
+test_ci <- expeditions_everest %>% group_by(year) %>% summarize(deaths = sum(total_deaths)) %>% pull(deaths) # make vector of deaths 
+
+expeditions_everest_ci_class <- make_ci_class(test_ci) # make class "ci_class"
+
+calculate_CI(expeditions_everest_ci_class, .95) # Apply calculate_CI function. The lower bound for deaths in a year is 3.2 and the upper bound is 5.06.
+```
+
+### **3)** Everest Expedition Deaths by Season: 
+
+
+```{r}
+
+renderPlot({expeditions_everest %>% 
+  group_by(season) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = fct_reorder(.f = season, .x = deaths))) +
+  geom_bar(stat = "identity") + 
+  xlab("season") +
+  ylab("total number of deaths") + 
+  ggtitle("Everest Expedition Deaths by Season") + 
+  labs(subtitle = "The vast majority of deaths occured in the spring (peak climbing season)")})
+```
+
+### **4)** Everest Expedition Deaths by Year: 
+
+```{r}
+
+renderPlot({expeditions_everest %>% 
+  group_by(year) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = year)) +
+  geom_point() +
+  geom_smooth() +
+  xlab("Year") +
+  ylab("total number of deaths") + 
+  ggtitle("Everest Expedition Deaths by Year") + 
+  labs(subtitle = "Deaths seem to be trending upwards")})
+```
+
+### **5)** Everest Expedition Deaths by Oxygen Use: 
+
+```{r}
+
+
+renderPlot({expeditions_everest %>% 
+  group_by(oxygen_used) %>%
+  summarize(deaths = sum(total_deaths)) %>%
+  ggplot(aes(y = deaths,
+             x = oxygen_used)) +
+  geom_bar(stat = "identity") +
+  xlab("Was Oxygen Used?") +
+  ylab("total number of deaths") + 
+  ggtitle("Everest Expedition Deaths by Oxygen Use") + 
+  labs(subtitle = "Most deaths occured when oxygen was used but this is likely because most expeditions use oxygen")})
+```
+
+
+### **6)** Conculsions: 
+
+It appears that most deaths occur in the spring and that that is likely due to the high volume of expeditions that take place in that season. Over time there seems to be an increase in deaths, likely attributed to the increasing number of climbers who attempt the mountain. 
+
+
+About Author {data-icon="fa-question-circle"}
+===================================== 
+
+Column {data-width=30}
+-------------------------------------
+
+This dashboard was created by Taner Bertuna. A Masters student at The Johns Hopkins Bloomberg School of Public Health. It was created on 12.23.2022. 
+
+
+Video {data-icon="fa-question-circle"}
+===================================== 
+
+Column {data-width=30}
+-------------------------------------
+
+**Click on thumbnail to view video:**
+
+[![IMAGE_ALT](thumb.png)](https://youtu.be/JV_jPBvafOA)
+
+
+
+

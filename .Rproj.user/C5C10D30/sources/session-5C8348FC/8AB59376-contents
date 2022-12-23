@@ -1,0 +1,19 @@
+#' Welcome to trigstatpack!
+#'
+#' This is the S3 class and print functions.
+#'
+#' @details make_ci_class function will turn an object into an object with class "ci_class".
+#'
+#' @param x vector, the vector that you want to convert to ci_class.
+#'
+#' @return No output for make_ci_class function.
+#'
+#' @import tidyverse
+#' @export
+#'
+#' @examples
+#' xx <- 1:10
+#' xx_oo <- make_ci_class(xx)
+#' class(xx_oo)
+#'
+make_ci_class <- function(x){structure((data = x), class = "ci_class")}
